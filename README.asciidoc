@@ -1,128 +1,128 @@
 :toc:
 
-= DDD on Scala
+= DDD sur Scala
 
-== はじめに
+== Présentation
 
-https://www.scala-lang.org[Scala] による https://www.amazon.co.jp/dp/4798121967[DDD（ドメイン駆動設計）] の実装サンプルです。
+Ceci est un exemple d'implémentation de https://www.amazon.co.jp/dp/4798121967 [DDD (Domain Driven Design)] par https://www.scala-lang.org [Scala].
 
-Scalaの関数型言語の特徴を活かして、 *イミュータブル* で *副作用のない（副作用を局所化した）* DDDの実装を目指しています。
+Tirant parti des fonctionnalités du langage fonctionnel de Scala, nous visons à implémenter * immuable * sans effets secondaires (effets secondaires localisés) * DDD.
 
-当サンプルの解説は、 https://speakerdeck.com/crossroad0201/scala-on-ddd[こちらのスライド] を参照してください。
+Veuillez vous référer à https://speakerdeck.com/crossroad0201/scala-on-ddd [cette diapositive] pour l'explication de cet exemple.
 
-[NOTE]
+[REMARQUE]
 ====
-実装上のポイントを、コード中に `NOTE:` でコメントしています。 +
-https://github.com/crossroad0201/ddd-on-scala/search?utf8=%E2%9C%93&q=NOTE%3A&type=[NOTE: で テキスト検索] するなどして参照してください。
+Les points d'implémentation sont commentés dans le code avec `NOTE :`. +
+Veuillez vous référer à https://github.com/crossroad0201/ddd-on-scala/search?utf8=%E2%9C%93&q=NOTE%3A&type=[recherche de texte avec REMARQUE :].
 ====
 
-== セットアップ
+== Configuration
 
-=== 前提
+=== Prémisse
 
-* JDK 1.8 以上
-* http://www.scala-sbt.org/index.html[sbt]
+* JDK 1.8 et supérieur
+* http://www.scala-sbt.org/index.html [sbt]
 
-=== DBの準備
+=== Préparation BD
 
-このサンプルでは、一部で http://www.h2database.com/html/main.html[組み込みのH2データベース] を使用したコード例があります。
+Dans cet exemple, il existe un exemple de code utilisant http://www.h2database.com/html/main.html [base de données H2 intégrée].
 
-サンプルの実行前にDBを作成します。
+Créez une base de données avant d'exécuter l'exemple.
 
-* **sbt** でDBにテーブルを作成します。
+Créez une table dans la BD avec * ** sbt **.
 ====
 > $ sbt "project rdb" flywayMigrate
 ====
 
-== ビルドと実行
+== Construire et exécuter
 
-このサンプルはアプリケーションとしてのエンドポイントはありません。 +
-動作は **sbt** からユニットテストを実行して確認してください。
+Cet exemple n'a pas de point de terminaison en tant qu'application. +
+Vérifiez le fonctionnement en lançant un test unitaire depuis **sbt**.
 
 ====
-> $ sbt test
+> test $ sbt
 ====
 
-== 構成
+== Paramétrage
 
-=== レイヤ・モジュール構成
+=== Configuration du module de couche
 
-このサンプルでは、 http://jeffreypalermo.com/blog/the-onion-architecture-part-1/[オニオンアーキテクチャ] をもとにした
-レイヤ・モジュール構成を採用しています。
+Cet exemple est basé sur http://jeffreypalermo.com/blog/the-onion-architecture-part-1/ [Onion Architecture]
+La composition du module de couche est adoptée.
 
-image:doc/Layer.png[レイヤ構成図]
+image : doc / Layer.png [Schéma de configuration des couches]
 
-[format="csv",options=["header"]]
-|===
-レイヤ,責務,依存するレイヤ
-ドメイン,ドメイン（業務）の関心事と仕様をモデル化します。,なし
-アプリケーション,ドメインを使用して、ユースケースを実現します。,ドメイン
-クエリ,`CQRS` のクエリモデルです。ドメインの読み取り専用ビューを提供します。,なし
-インフラストラクチャ,アプリケーションの実行結果を永続化します。,アプリケーション / ドメイン / クエリ
-インターフェース,利用者へのユーザーインターフェースを提供します。,インフラストラクチャ / アプリケーション / ドメイン / クエリ
-|===
+[format = "csv", options = ["en-tête"]]
+| ===
+Couches, responsabilités, couches dépendantes
+Domaines modèles, préoccupations et spécifications du domaine (entreprise). ,rien
+Utilisez des applications et des domaines pour implémenter des cas d'utilisation. ,domaine
+Query, le modèle de requête pour `CQRS`. Fournit une vue en lecture seule du domaine. ,rien
+Persistez le résultat d'exécution de l'infrastructure et de l'application. , Application / Domaine / Requête
+Interface, fournit une interface utilisateur à l'utilisateur. , Infrastructure / Applications / Domaines / Requêtes
+| ===
 
-* `ドメインレイヤ` と `アプリケーションレイヤ` は特定のインフラストラクチャに依存しないので、
-インフラストラクチャの変更が容易になります。 +
-また、インフラストラクチャをモック化することも容易なので、ユニットテストを簡単かつ軽量に実施することができます。
+* La `couche de domaine` et la `couche d'application` ne dépendent d'aucune infrastructure particulière, donc
+Il facilite le changement d'infrastructure. +
+Il est également facile de se moquer de votre infrastructure, ce qui rend les tests unitaires faciles et légers.
 
-* `インフラストラクチャレイヤ` は、採用するミドルウェア・サービスごとにモジュールを分割します。 +
-こうすることで、`インターフェースレイヤ` でインフラストラクチャモジュールを実行に必要なものだけに限定することができ、
-使用しないライブラリ（JDBCドライバやクライアントライブラリなど）のために実行モジュールが肥大化することを回避できます +
-特に `AWS Lambda` などのサーバレスプラットフォームでは、実行モジュールが大きくなると実行時のスピンアップ時間が長くなるため、
-実行モジュールを小さくすることに価値があります。
+* `Couche d'infrastructure` divise le module en fonction du service middleware à adopter. +
+Cela vous permet de limiter les modules d'infrastructure à ce que vous devez exécuter au niveau de la "couche d'interface".
+Vous pouvez éviter de gonfler les modules d'exécution en raison de bibliothèques inutilisées (pilotes JDBC, bibliothèques clientes, etc.) +
+En particulier sur les plates-formes sans serveur telles que "AWS Lambda", plus le module d'exécution est volumineux, plus le temps de démarrage au moment de l'exécution est long.
+Cela vaut la peine de réduire la taille du module d'exécution.
 
-* `インターフェースレイヤ` は、提供するインターフェース（Web画面、REST API、CLIなど）ごとにモジュールを分割します。  +
+* La `couche d'interface` divise le module par l'interface qu'il fournit (écran Web, API REST, CLI, etc.). +
 
-=== コンポーネント構成
+=== Paramétrage des composants
 
-このサンプルのコンポーネント構成は下図の通りです。
+La configuration des composants de cet exemple est illustrée dans la figure ci-dessous.
 
-link:modules/application/src/main/scala/crossroad0201/dddonscala/application/task/TaskService.scala[アプリケーションサービス] からコードを追っていくと、全体が把握しやすいと思います。
+Si vous suivez le code du lien : modules/application/src/main/scala/crossroad0201/dddonscala/application/task/TaskService.scala [service d'application], il sera plus facile de comprendre l'ensemble.
 
-image:doc/Components.png[コンポーネント図]
+image : doc / Components.png [Schéma des composants]
 
-=== 概念モデル
+=== Modèle conceptuel
 
-このサンプルのドメインでは、シンプルなタスク管理を扱います。 +
-ドメインの概念モデルは下図の通りです。
+Cet exemple de domaine traite de la gestion des tâches simples. +
+Le modèle conceptuel du domaine est présenté dans la figure ci-dessous.
 
-image:doc/DomainModel.png[概念モデル図]
+image : doc / DomainModel.png [Diagramme du modèle conceptuel]
 
-== 参考文献
+== Références
 
-=== Scala
+=== Échelle
 
-* https://dwango.github.io/scala_text/[ドワンゴさんのScala研修用テキスト] +
-Scalaの入門テキスト。
-* http://www.ne.jp/asahi/hishidama/home/tech/scala/index.html[HishidamaさんのScalaリファレンス] +
-Scalaのよく使う言語機能やAPIのリファレンス。
+* https://dwango.github.io/scala_text/ [Texte de formation Scala de Dwango] +
+Texte d'introduction pour Scala.
+* http://www.ne.jp/asahi/hishidama/home/tech/scala/index.html [Référence Scala de Hishidama] +
+Une référence aux fonctionnalités de langage et aux API fréquemment utilisées de Scala.
 
 * http://www.scalatest.org/user_guide[ScalaTest] +
-Scalaの代表的なテスティングライブラリ。
-* http://scalikejdbc.org[ScalikeJDBC] +
-ScalaでRDBにアクセスするライブラリ。
+Une bibliothèque de test Scala typique.
+* http://calikejdbc.org [ScalikeJDBC] +
+Une bibliothèque pour accéder à RDB dans Scala.
 
-* https://tpolecat.github.io/2015/04/29/f-bounds.html[Returning the "Current" Type in Scala] +
-スーパータイプのメソッドの戻り値の型として、サブタイプを使用する方法の解説。
+* https://tpolecat.github.io/2015/04/29/f-bounds.html [Renvoyer le type "actuel" dans Scala] +
+Une description de la façon d'utiliser les sous-types comme type de retour des méthodes de supertype.
 
-=== DDD（ドメイン駆動設計）
+=== DDD (Conception pilotée par domaine)
 
-* https://www.amazon.co.jp/dp/4798121967[書籍：エリック・エヴァンスのドメイン駆動設計]
-* https://www.amazon.co.jp/dp/479813161X[書籍：実践ドメイン駆動設計]
+* https://www.amazon.co.jp/dp/4798121967 [Livre : Conception pilotée par domaine d'Eric Evans]
+* https://www.amazon.co.jp/dp/479813161X [Livre : Conception pratique pilotée par le domaine]
 
-* http://labs.gree.jp/blog/2013/12/9354/[Scalaコードでわかった気になるDDD] +
-Scalaを使ったDDDの解説。
-* http://www.qcontokyo.com/data_2016/pdf/B-2_2_JunichiKato.pdf[DDD実践(ベスト)プラクティス｛ドメインイベントとマイクロサービスと組織の関係｝] +
-CQRSパターンとドメインイベント／イベントソーシングの解説。
+* http://labs.gree.jp/blog/2013/12/9354/ [DDD que j'ai trouvé dans le code Scala] +
+Explication de DDD en utilisant Scala.
+* http://www.qcontokyo.com/data_2016/pdf/B-2_2_JunichiKato.pdf [Pratique DDD (meilleure) pratique {relation entre les événements de domaine, les microservices et les organisations}] +
+Explication des modèles CQRS et de l'événement de domaine / de l'approvisionnement en événements.
 
-=== アーキテクチャ
+=== Architecture
 
-* http://jeffreypalermo.com/blog/the-onion-architecture-part-1/[The Onion Architecture : part 1]
-* https://qiita.com/little_hand_s/items/2040fba15d90b93fc124[ドメイン駆動 + オニオンアーキテクチャ概略]
-* http://qiita.com/gki/items/91386b082c57123f1ba0[Clean Architectureで分からなかったところを整理する]
+* http://jeffreypalermo.com/blog/the-onion-architecture-part-1/ [L'architecture de l'oignon : partie 1]
+* https://qiita.com/little_hand_s/items/2040fba15d90b93fc124 [Domain Driven + Onion Architecture Overview]
+* http://qiita.com/gki/items/91386b082c57123f1ba0 [Nettoyez ce que vous n'avez pas compris dans Clean Architecture]
 
-=== その他
+=== Autre
 
-* http://powerman.name/doc/asciidoc[AsciiDoc cheatsheet] +
-AsciiDoc（このREADMEでも使用しているマークダウン言語）の書き方。一般的な Markdown よりも表現力が強力。
+* http://powerman.name/doc/asciidoc [AsciiDoc cheatsheet] +
+Comment écrire AsciiDoc (le langage Markdown utilisé dans ce README). Plus expressif que le Markdown général.
